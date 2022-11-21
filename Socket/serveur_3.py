@@ -1,5 +1,5 @@
-import sys, socket, threading, signal, queue
-from multiprocessing import Process
+import sys, socket, threading, signal, queue, time, os
+
 liste_connection = []
 liste_queue=[]
 liste_thread = []
@@ -41,6 +41,8 @@ def deconnection(qu):
                 print("envoi du signal de terminaison")
                 for c in liste_connection:
                     c.send("bye".encode())
+                time.sleep(1)
+                signal.pthread_kill(threading.main_thread().ident,signal.SIGUSR1)
             except BrokenPipeError:
                 print("erreur écriture socket fermée")
             except ConnectionResetError:
@@ -49,16 +51,18 @@ def deconnection(qu):
             break
     print("sortie")
 
-
+def arret(signnum,stack):
+    sys.exit()
 
 
 def serveur(host, port):
     try:
         serveur_socket = socket.socket()
+        serveur_socket.setsockopt()
         serveur_socket.bind((host,port))
         serveur_socket.listen(5)
         print ("demarrage écoute")
-
+        signal.signal(signal.SIGUSR1,arret)
         dec=threading.Thread(target=deconnection,args=(qu,))
         dec.start()
         while True:
