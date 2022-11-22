@@ -6,7 +6,7 @@ liste_thread = []
 qu = queue.Queue()
 
 def ecoute(conn, q):
-    pseudo = conn.recv(1024).decode()
+    pseudo = conn.  recv(1024).decode()
     verrou = threading.Lock()
     data = ""
     try :
@@ -15,7 +15,13 @@ def ecoute(conn, q):
             if len(data) == 0:
                 break
             print(f"{pseudo} --> {data} \n")
-            conn.send(data.encode())
+            verrou.acquire()
+            for c in liste_connection:
+                try:
+                    c.send(f"{pseudo} --> {data}".encode())
+                except BrokenPipeError:
+                    c.close()
+            verrou.release()
         if str(data).lower().strip() == "exit":
             verrou.acquire()
             liste_connection.remove(conn)
@@ -58,7 +64,7 @@ def arret(signnum,stack):
 def serveur(host, port):
     try:
         serveur_socket = socket.socket()
-        serveur_socket.setsockopt()
+
         serveur_socket.bind((host,port))
         serveur_socket.listen(5)
         print ("demarrage écoute")

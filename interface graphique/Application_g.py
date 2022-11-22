@@ -7,17 +7,23 @@ from threading import *
 from PyQt5.QtCore import *
 
 class Worker(QThread):
-    def __init__(self, connection, list):
+    def __init__(self, connection, list, listmodel):
         super().__init__()
         self.connection = connection
         self.list=list
+        self.listmodel = listmodel
     def run(self):
         msg = ""
         while msg != "exit" and msg != "bye" :
             msg = self.connection.recv(1024).decode()
             self.list.append(msg)
+            if len(self.list) < 10:
+                self.listmodel.setStringList(self.list[::-1])
+            else:
+                self.listmodel.setStringList(self.list[:-10:-1])
+
         self.connection.close()
-        return
+        self.terminate()
 
 class MonApp(QMainWindow):
 
@@ -41,8 +47,9 @@ class MonApp(QMainWindow):
         self.pseudo = QLineEdit("")
         self.listV = QListView()
         self.list=[]
-        listmodel = QStringListModel(self.list)
-        self.listV.setModel(listmodel)
+        self.listmodel = QStringListModel(self.list)
+        self.listV.setModel(self.listmodel)
+        self.listV.flow()
         self.quitter.clicked.connect(self._action_quitter)
         self.connect.clicked.connect(self._action_connecter)
         self.disconnect.clicked.connect(self._action_deconnecter)
@@ -68,15 +75,15 @@ class MonApp(QMainWindow):
 
 
     def _action_quitter(self):
-        if self.worker.isRunning():
+        if self.worker is not None and self.worker.isRunning():
             self.worker.terminate()
         QApplication.exit(0)
 
 
     def _action_deconnecter(self):
         self.connection.send("bye".encode())
-        self.connection.close()
         self.worker.terminate()
+        self.connection.close()
         QMessageBox(text="connection fermée").exec()
 
     def _action_connecter(self):
@@ -93,14 +100,17 @@ class MonApp(QMainWindow):
             self.connection=sock
             self.connection.send(self.pseudo.text().encode())
             QMessageBox(text="connection établie").exec()
-            self.worker = Worker(self.connection, self.list)
+            self.worker = Worker(self.connection, self.list, self.listmodel)
             self.worker.start()
+
 
     def _msg_send(self):
         msg = self.msg.text()
         if self.connection is not None:
             self.connection.send(msg.encode())
             self.msg.clear()
+            self.listmodel = QStringListModel(self.list)
+            self.listV.flow()
         else :
             QMessageBox(text="impossible d'envoyer un message, socket fermée.").exec()
 
